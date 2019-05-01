@@ -25,6 +25,14 @@ atttrition = 1
 eat_food_health = 10
 eat_prey_health_modifier = 0.6
 
+# start_prey_per_tile = 0.0005
+# start_predators_per_tile = 0
+# start_food_per_tile = 0.5
+# growth_per_tile = 0
+# atttrition = 0
+# eat_food_health = 0
+# eat_prey_health_modifier = 0
+
 starting_health = 100
 reproduce_health = 200
 
@@ -34,7 +42,7 @@ y_size = 50
 output_file = "output.csv"
 
 def print_world():
-    os.system('clear')
+    #os.system('clear')
     print("Predators: {} \tPrey: {} \tFood: {}".format(len(predators), len(prey), tiles - len(no_food)))
     print('-' * (x_size + 2))
     for y in range(y_size):
@@ -56,61 +64,78 @@ def get_moves(tile_condition, x, y):
             if possible_y >= y_size or possible_y < 0:
                 continue
             if tile_condition(world[possible_y][possible_x]):
+                assert delta_y != 0 or delta_x != 0
                 moves.append((possible_x, possible_y))
     return moves
 
 def tick():
+    global prey, predators
+    new_predators = []
     for x, y in predators:
-        p = world[y][x].predator
+        p = world[y][x].entity
+        assert isinstance(p, Predator)
         p.health -= atttrition
-        if world[y][x].prey != None:
-            p.health += world[y][x].prey.health * eat_prey_health_modifier
-            world[y][x].prey = None
-            prey.remove((x, y))
         if p.health <= 0:
-            world[y][x].predator = None
+            world[y][x].entity = None
             if (x, y) in no_food:
                 world[y][x].food = True
                 no_food.remove((x, y))
-            predators.remove((x, y))
+            # predators.remove((x, y))
             continue
-        moves = get_moves(lambda tile: tile.predator == None, x, y)
+        # moves anywhere but onto another predator
+        moves = get_moves(lambda tile: not isinstance(tile.entity, Predator), x, y)
         if len(moves) > 0:
             new_x, new_y = random.choice(moves)
+            new_p = world[new_y][new_x].entity
+            if isinstance(new_p, Prey):
+                p.health += new_p.health * eat_prey_health_modifier
+                # not strictly needed: world[y][x].entity = None
+                prey.remove((new_x, new_y))
             if p.health > reproduce_health:
-                world[new_y][new_x].predator = Creature(p.health / 2)
+                world[new_y][new_x].entity = Predator(p.health / 2)
                 p.health = p.health / 2
+                new_predators.append((x, y))
             else:
-                world[y][x].predator = None
-                world[new_y][new_x].predator = p
-                predators.remove((x, y))
-            predators.append((new_x, new_y))
+                world[y][x].entity = None
+                world[new_y][new_x].entity = p
+                # predators.remove((x, y))
+            new_predators.append((new_x, new_y))
+    predators = new_predators
 
+    new_prey = []
     for x, y in prey:
-        p = world[y][x].prey
+        p = world[y][x].entity
+        assert isinstance(p, Prey)
         p.health -= atttrition
         if world[y][x].food == True:
             world[y][x].food = False
             no_food.append((x, y))
             p.health += eat_food_health
         if p.health <= 0:
-            world[y][x].prey = None
+            world[y][x].entity = None
             if (x, y) in no_food:
                 world[y][x].food = True # 1
                 no_food.remove((x, y))
-            prey.remove((x, y))
+            # prey.remove((x, y))
             continue
-        moves = get_moves(lambda tile: tile.prey == None, x, y)
+        # moves anywhere but onto another prey OR predator
+        moves = get_moves(lambda tile: tile.entity == None, x, y)
         if len(moves) > 0:
             new_x, new_y = random.choice(moves)
             if p.health > reproduce_health:
-                world[new_y][new_x].prey = Creature(p.health / 2)
+                world[new_y][new_x].entity = Prey(p.health / 2)
                 p.health = p.health / 2
+                new_prey.append((x, y))
             else:
-                world[y][x].prey = None
-                world[new_y][new_x].prey = p
-                prey.remove((x, y))
-            prey.append((new_x, new_y))
+                world[y][x].entity = None
+                world[new_y][new_x].entity = p
+                # prey.remove((x, y))
+            assert x != new_x or y != new_y
+            # print("x {} y {}".format(x, y))
+            # print("new x {} new y {}".format(new_x, new_y))
+            new_prey.append((new_x, new_y))
+
+    prey = new_prey
 
     for i in range(growth):
         if len(no_food) <= 0:
@@ -118,13 +143,13 @@ def tick():
         x, y = random.choice(no_food)
         world[y][x].food = True
         no_food.remove((x, y))
-    print_world()
 
 
 def run():
     print_world()
     while not stop:
         tick()
+        print_world()
         time.sleep(wait_secs)
 
 
@@ -145,21 +170,20 @@ def main():
     global prey
     global no_food
     world = [[Tile() for x in range(x_size)] for y in range(y_size)]
-    prey = []
-    no_prey = [(x, y) for x in range(x_size) for y in range(y_size)]
+    predators = [None] * start_predators
+    prey = [None] * start_prey
+    no_creatures = [(x, y) for x in range(x_size) for y in range(y_size)]
     no_food = [(x, y) for x in range(x_size) for y in range(y_size)]
-    predators = []
-    no_predators = [(x, y) for x in range(x_size) for y in range(y_size)]
     for i in range(start_predators):
-        x, y = random.choice(no_predators)
-        world[y][x].predator = Creature(starting_health)
-        predators.append((x, y))
-        no_predators.remove((x, y))
+        x, y = random.choice(no_creatures)
+        world[y][x].entity = Predator(starting_health)
+        predators[i] = (x, y)
+        no_creatures.remove((x, y))
     for i in range(start_prey):
-        x, y = random.choice(no_prey)
-        world[y][x].prey = Creature(starting_health)
-        prey.append((x, y))
-        no_prey.remove((x, y))
+        x, y = random.choice(no_creatures)
+        world[y][x].entity = Prey(starting_health)
+        prey[i] = (x, y)
+        no_creatures.remove((x, y))
     for i in range(start_food):
         x, y = random.choice(no_food)
         world[y][x].food = True

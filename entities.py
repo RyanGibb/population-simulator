@@ -1,14 +1,13 @@
 
 class Tile:
     def __init__(self):
-        self.predator = None
-        self.prey = None
+        self.entity = None
         self.food = False
 
     def get_char(self):
-        if self.predator != None:
+        if isinstance(self.entity, Predator):
             return "C"
-        elif self.prey != None:
+        if isinstance(self.entity, Prey):
             return "H"
         elif self.food == True:
             return "."
@@ -24,4 +23,12 @@ class Creature:
         pass
 
     def __repr__(self):
-        return "Creature: current health {}".format(self.health)
+        return "Creature: health {}".format(self.health)
+
+class Predator(Creature):
+    def __init__(self, starting_health):
+        Creature.__init__(self, starting_health)
+
+class Prey(Creature):
+    def __init__(self, starting_health):
+        Creature.__init__(self, starting_health)
