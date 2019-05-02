@@ -42,7 +42,7 @@ y_size = 50
 output_file = "output.csv"
 
 def print_world():
-    #os.system('clear')
+    os.system('clear')
     print("Predators: {} \tPrey: {} \tFood: {}".format(len(predators), len(prey), tiles - len(no_food)))
     print('-' * (x_size + 2))
     for y in range(y_size):
