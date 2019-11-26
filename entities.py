@@ -6,9 +6,9 @@ class Tile:
 
     def get_char(self):
         if isinstance(self.entity, Predator):
-            return "C"
+            return "\u001b[31mC\u001b[0m"
         if isinstance(self.entity, Prey):
-            return "H"
+            return "\u001b[32mH\u001b[0m"
         elif self.food == True:
             return "."
         else:
